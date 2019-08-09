@@ -3,6 +3,7 @@ import time
 import logging
 import sys
 import os
+import time
 import json
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -37,15 +38,9 @@ def sleep():
         # }
 
         j = {
-            'resource': {
-                'labels': {
-                    'module_id': os.environ.get('GAE_SERVICE'),
-                    'project_id': os.environ.get('GAE_APPLICATION'),
-                    'version_id': os.environ.get('GAE_VERSION'),
-                },
-                'type': 'gae_app'
-            },
-            'trace': trace_id,
+            'Message': f'Sleep {i}',
+            'severity': 'DEFAULT',
+            'logging.googleapis.com/trace': trace_id,
         }
         print(json.dumps(j))
         logger.debug(f'sleep {i}')
