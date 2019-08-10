@@ -30,6 +30,7 @@ def sleep():
 
     project_name = os.environ.get('GOOGLE_CLOUD_PROJECT', '<project-id>')
     trace = f'projects/{project_name}/traces/{trace_id}'
+    logger.debug(f'trace = {trace}, span_id = {span_id}')
 
     for i in range(0, 10):
         time.sleep(1)
@@ -48,7 +49,7 @@ def sleep():
         # }
 
         j = {
-            'Message': f'Sleep {i}',
+            'Message': f'Sleep {i}; {trace}, {span_id}',
             'severity': 'DEFAULT',
             'logging.googleapis.com/trace': trace,
             'logging.googleapis.com/spanId': span_id,
@@ -59,7 +60,7 @@ def sleep():
             }
         }
         print(json.dumps(j))
-        logger.debug(f'sleep {i}')
+        logger.debug(f'sleep {i}; {json.dumps(j)}')
 
     return 'sleep and wakeup.'
 
