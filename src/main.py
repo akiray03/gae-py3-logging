@@ -5,11 +5,24 @@ import sys
 import os
 import json
 import traceback
+import datetime
+import uuid
 
 from custom_logger import CustomLogger
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+my_gae_log_path = '/var/log/my-gae-log' if 'GAE_DEPLOYMENT_ID' in os.environ else 'log/my-gae-log'
+if not os.path.exists(os.path.dirname(my_gae_log_path)):
+    os.makedirs(os.path.dirname(my_gae_log_path))
+handler = logging.FileHandler(filename=my_gae_log_path)
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('%(message)s'))
+gae_logger = logging.getLogger('my_gae_logger')
+gae_logger.propagate = False
+gae_logger.addHandler(handler)
+gae_logger.setLevel(logging.DEBUG)
 
 app = flask.Flask('app')
 
@@ -20,6 +33,53 @@ custom_logger = CustomLogger()
 def root():
     logger.info(f'headers:\n{flask.request.headers}')
     return 'Hello, world'
+
+
+@app.route('/gae_log')
+def gae_log():
+    project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', '<unknown-project>')
+    app_id = f'b~{project_id}'
+
+    start_time = datetime.datetime.utcnow()
+    now = start_time + datetime.timedelta(seconds=5)
+    end_time = start_time + datetime.timedelta(seconds=30)
+
+    j = {
+        '@type': 'type.googleapis.com/google.appengine.logging.v1.RequestLog',
+        'appEngineRelease': '1.9.71',  # TODO
+        'appId': app_id,
+        'cost': 1.0e-8,
+        'endTime': end_time.isoformat(),
+        'finished': True,
+        'first': True,
+        'host': flask.request.host,
+        'httpVersion': 'HTTP/1.1',  # TODO
+        'instanceId': os.environ.get('GAE_INSTANCE'),
+        'instanceIndex': -1,
+        'ip': flask.request.remote_addr,
+        'latency': '30.0s',
+        'line': [
+            {
+                'logMessage': 'This is request message',
+                'severity': 'INFO',
+                'time': now.isoformat(),
+            }
+        ],
+        'megaCycles': '1234',
+        'method': flask.request.method,
+        'requestId': os.environ.get('X-Appengine-Request-Log-Id', str(uuid.uuid4())),
+        'resource': flask.request.path,
+        'startTime': start_time.isoformat(),
+        'status': 200,  # TODO
+        'traceId': '',  # XXX
+        'traceSampled': True,
+        'urlMapEntry': 'auto',
+        'userAgent': str(flask.request.user_agent),
+        'versionId': os.environ.get('GAE_VERSION'),
+        'wasLoadingRequest': False,  # TODO
+    }
+    gae_logger.info(json.dumps(j))
+    return flask.jsonify(j)
 
 
 @app.route('/logging')
