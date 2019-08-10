@@ -19,7 +19,17 @@ def root():
 
 @app.route('/sleep')
 def sleep():
-    trace_id = flask.request.headers.get('X-Cloud-Trace-Context')
+    cloud_trace_context = flask.request.headers.get('X-Cloud-Trace-Context')
+    logger.debug(f'X-Cloud-Trace-Context = {cloud_trace_context}')
+    trace_id = None
+    span_id = None
+    if cloud_trace_context.find('/') >= 0:
+        trace_id, span_id = cloud_trace_context.split('/', )
+        if span_id.find(';') >= 0:
+            span_id = span_id.split(';')[0]
+
+    project_name = os.environ.get('GOOGLE_CLOUD_PROJECT', '<project-id>')
+    trace = f'projects/{project_name}/traces/{trace_id}'
 
     for i in range(0, 10):
         time.sleep(1)
@@ -40,7 +50,13 @@ def sleep():
         j = {
             'Message': f'Sleep {i}',
             'severity': 'DEFAULT',
-            'logging.googleapis.com/trace': trace_id,
+            'logging.googleapis.com/trace': trace,
+            'logging.googleapis.com/spanId': span_id,
+            'logging.googleapis.com/sourceLocation': {
+                'file': __file__,
+                'line': 47,
+                'function': str(__name__)
+            }
         }
         print(json.dumps(j))
         logger.debug(f'sleep {i}')
