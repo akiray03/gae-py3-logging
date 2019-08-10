@@ -5,6 +5,7 @@ import sys
 import os
 import time
 import json
+import traceback
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -60,6 +61,12 @@ def sleep():
             }
         }
         print(json.dumps(j))
+        try:
+            raise RuntimeError('this is error!')
+        except Exception as e:
+            j['Message'] = str(e) + '\n' + traceback.format_exc()
+
+            print(json.dumps(j), file=sys.stderr)
         logger.debug(f'sleep {i}; {json.dumps(j)}')
 
     return 'sleep and wakeup.'
