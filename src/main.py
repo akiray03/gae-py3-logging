@@ -40,13 +40,29 @@ def gae_log():
     project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', '<unknown-project>')
     app_id = f'b~{project_id}'
 
+    trace_header = flask.request.headers.get('X-Cloud-Trace-Context')
+
+
+    if trace_header is None:
+        return (None, None)
+
+    trace_id = None
+    span_id = None
+
+    if trace_header.find('/') >= 0:
+        trace_id, span_id = trace_header.split('/', )
+        if span_id.find(';') >= 0:
+            span_id = span_id.split(';')[0]
+
+    trace = f'projects/{project_id}/traces/{trace_id}'
+
     start_time = datetime.datetime.utcnow()
     now = start_time + datetime.timedelta(seconds=5)
     end_time = start_time + datetime.timedelta(seconds=30)
 
     j = {
         '@type': 'type.googleapis.com/google.appengine.logging.v1.RequestLog',
-        'appEngineRelease': '1.9.71',  # TODO
+        # 'appEngineRelease': '1.9.71',  # TODO
         'appId': app_id,
         'cost': 1.0e-8,
         'endTime': end_time.isoformat(),
@@ -56,7 +72,7 @@ def gae_log():
         'httpVersion': 'HTTP/1.1',  # TODO
         'instanceId': os.environ.get('GAE_INSTANCE'),
         'instanceIndex': -1,
-        'ip': flask.request.remote_addr,
+        'ip': flask.request.headers.get('X-Appengine-User-Ip', flask.request.remote_addr),
         'latency': '30.0s',
         'line': [
             {
@@ -71,12 +87,21 @@ def gae_log():
         'resource': flask.request.path,
         'startTime': start_time.isoformat(),
         'status': 200,  # TODO
-        'traceId': '',  # XXX
+        'traceId': trace_id,
         'traceSampled': True,
         'urlMapEntry': 'auto',
         'userAgent': str(flask.request.user_agent),
         'versionId': os.environ.get('GAE_VERSION'),
         'wasLoadingRequest': False,  # TODO
+
+        'severity': 'INFO',
+        'logging.googleapis.com/trace': trace,
+        'logging.googleapis.com/spanId': span_id,
+        'logging.googleapis.com/sourceLocation': {
+            'file': __file__,
+            'line': 47,
+            'function': str(__name__)
+        }
     }
     gae_logger.info(json.dumps(j))
     return flask.jsonify(j)
