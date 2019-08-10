@@ -42,23 +42,19 @@ def gae_log():
 
     trace_header = flask.request.headers.get('X-Cloud-Trace-Context')
 
-
-    if trace_header is None:
-        return (None, None)
-
     trace_id = None
     span_id = None
 
-    if trace_header.find('/') >= 0:
+    if trace_header is not None and trace_header.find('/') >= 0:
         trace_id, span_id = trace_header.split('/', )
         if span_id.find(';') >= 0:
             span_id = span_id.split(';')[0]
 
     trace = f'projects/{project_id}/traces/{trace_id}'
 
-    start_time = datetime.datetime.utcnow()
-    now = start_time + datetime.timedelta(seconds=5)
-    end_time = start_time + datetime.timedelta(seconds=30)
+    start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=2)
+    now = start_time + datetime.timedelta(seconds=1)
+    end_time = start_time + datetime.timedelta(seconds=2)
 
     j = {
         '@type': 'type.googleapis.com/google.appengine.logging.v1.RequestLog',
@@ -78,8 +74,23 @@ def gae_log():
             {
                 'logMessage': 'This is request message',
                 'severity': 'INFO',
+                'time': start_time.isoformat(),
+                'sourceLocation': {
+                    'file': __file__,
+                    'line': 47,
+                    'function': str(__name__)
+                }
+            },
+            {
+                'logMessage': 'This is request message :smile:',
+                'severity': 'DEBUG',
                 'time': now.isoformat(),
-            }
+                'sourceLocation': {
+                    'file': __file__,
+                    'line': 47,
+                    'function': str(__name__)
+                }
+            },
         ],
         'megaCycles': '1234',
         'method': flask.request.method,
@@ -97,12 +108,13 @@ def gae_log():
         'severity': 'INFO',
         'logging.googleapis.com/trace': trace,
         'logging.googleapis.com/spanId': span_id,
-        'logging.googleapis.com/sourceLocation': {
-            'file': __file__,
-            'line': 47,
-            'function': str(__name__)
-        }
+        # 'logging.googleapis.com/sourceLocation': {
+        #     'file': __file__,
+        #     'line': 47,
+        #     'function': str(__name__)
+        # }
     }
+
     gae_logger.info(json.dumps(j))
     return flask.jsonify(j)
 
