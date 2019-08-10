@@ -18,6 +18,7 @@ custom_logger = CustomLogger()
 
 @app.route('/')
 def root():
+    logger.info(f'headers:\n{flask.request.headers}')
     return 'Hello, world'
 
 
