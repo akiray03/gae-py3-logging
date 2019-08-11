@@ -2,12 +2,10 @@ import json
 import logging
 import os
 import sys
+import inspect
 
-from typing import IO
 from typing import Optional
 from typing import Tuple
-
-import flask
 
 
 class CustomLogger:
@@ -25,32 +23,62 @@ class CustomLogger:
             error_logger: logging.Logger,
             trace: Optional[str] = None,
             span_id: Optional[str] = None,
+            structured_log_enabled: Optional[bool] = True
     ):
         self._project_id = project_id
         self._default_logger = default_logger
         self._error_logger = error_logger
         self._trace = trace
         self._span_id = span_id
+        self._structured_log_enabled = structured_log_enabled
+
+        self._cwd = os.getcwd() + '/'
 
     def getLevelName(self, level) -> str:
         from logging import getLevelName
         return getLevelName(level)
 
     def _build_json_log_payload(self, level, msg) -> dict:
-        return {
+        j = {
             'Message': str(msg),
             'severity': self.getLevelName(level),
-            'logging.googleapis.com/trace': self._trace,
-            'logging.googleapis.com/spanId': self._span_id,
-            'logging.googleapis.com/sourceLocation': {
-                'file': __file__,
-                'line': 47,
-                'function': str(__name__)
-            }
         }
 
-    def _safety_json_dumps(self, d: dict) -> str:
-        return json.dumps(d)
+        if self._trace is not None:
+            j['logging.googleapis.com/trace'] = self._trace
+        if self._span_id is not None:
+            j['logging.googleapis.com/spanId'] = self._span_id
+
+        caller = self.findCaller()
+        if caller is not None:
+            j['logging.googleapis.com/sourceLocation'] = caller
+
+        return j
+
+    def _json_formatter(self, d: dict) -> str:
+        return json.dumps(d, ensure_ascii=False)
+
+    def _log_text_formatter(self, d: dict) -> str:
+        import datetime
+
+        file = d.get('logging.googleapis.com/sourceLocation', {}).get('file', '<unknown>')
+        file = file.replace(self._cwd, '')
+        line = d.get('logging.googleapis.com/sourceLocation', {}).get('line', '-')
+
+        msg = '[{timestamp}]{severity}:{file}:{line}: {message}'.format(
+            timestamp=datetime.datetime.now(),
+            severity=d.get('severity'),
+            file=file,
+            line=line,
+            message=d.get('Message')
+        )
+        return msg
+
+    def _formatter(self, d: dict) -> str:
+        if self._structured_log_enabled:
+            return self._json_formatter(d)
+        else:
+            return self._log_text_formatter(d)
 
     def info(self, msg, *args, **kwargs):
         level = self.INFO
@@ -59,7 +87,7 @@ class CustomLogger:
             msg=msg,
         )
 
-        self._default_logger.log(level, self._safety_json_dumps(json_message), *args, **kwargs)
+        self._default_logger.log(level, self._formatter(json_message), *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
         level = self.ERROR
@@ -68,10 +96,22 @@ class CustomLogger:
             msg=msg,
         )
 
-        self._error_logger.log(level, self._safety_json_dumps(json_message), *args, **kwargs)
+        self._error_logger.log(level, self._formatter(json_message), *args, **kwargs)
 
-    def findCaller(self):
-        pass
+    def findCaller(self) -> Optional[dict]:
+        stacks = inspect.stack()
+        if len(stacks) < 4:
+            return
+
+        stack = stacks[3]
+
+        file: str = stack.filename
+
+        return {
+            'file': file,
+            'line': stack.lineno,
+            'function': stack.function,
+        }
 
 
 class CustomLoggerManager:
@@ -86,6 +126,8 @@ class CustomLoggerManager:
             self,
     ):
         self._project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', '<unknown-project>')
+        is_google_platform = os.environ.get('GAE_DEPLOYMENT_ID') is not None
+        self._structured_log_enabled = is_google_platform
 
         self._default_logger, self._default_handler = self._build_logger(
             logger_name='default_logger',
@@ -94,7 +136,7 @@ class CustomLoggerManager:
         )
         self._error_logger, self._error_handler = self._build_logger(
             logger_name='default_logger',
-            stream=sys.stdout,
+            stream=sys.stderr,
             level=self.DEBUG
         )
 
@@ -102,15 +144,15 @@ class CustomLoggerManager:
     def _build_logger(logger_name, stream, level) -> Tuple[logging.Logger, logging.Handler]:
         formatter = logging.Formatter('%(message)s')
 
-        handler = logging.StreamHandler()
-        handler.setStream(stream)
+        handler = logging.StreamHandler(stream=stream)
         handler.setLevel(level)
         handler.setFormatter(formatter)
 
         logger = logging.getLogger(logger_name)
         logger.propagate = False
-        logger.addHandler(handler)
         logger.setLevel(level)
+        if not logger.hasHandlers():
+            logger.addHandler(handler)
         return (logger, handler)
 
     def getLevelName(self, level) -> str:
@@ -145,5 +187,6 @@ class CustomLoggerManager:
             default_logger=self._default_logger,
             error_logger=self._error_logger,
             trace=trace,
-            span_id=span_id
+            span_id=span_id,
+            structured_log_enabled=self._structured_log_enabled,
         )
