@@ -150,6 +150,13 @@ def gae_log():
 def logging():
     flask.g.custom_logger.info('Hello test message 日本語エラーメッセージ')
     flask.g.custom_logger.error('Hello. this is error test message')
+    flask.g.custom_logger.exception('Hello. this is error test message')
+
+    try:
+        1 / 0
+    except Exception as e:
+        flask.g.custom_logger.exception(e)
+
     return 'Hi.'
 
 
