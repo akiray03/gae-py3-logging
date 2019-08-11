@@ -158,6 +158,7 @@ class CustomLoggerManager:
 
     def __init__(self):
         self._project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', '<unknown-project>')
+
         is_google_platform = os.environ.get('GAE_DEPLOYMENT_ID') is not None
         self._structured_log_enabled = is_google_platform
 

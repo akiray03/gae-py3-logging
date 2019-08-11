@@ -8,8 +8,7 @@ import traceback
 import datetime
 import uuid
 
-from custom_logger import CustomLoggerManager
-from custom_logger import CustomLogger
+from gumo.logging import CustomLoggerManager
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
