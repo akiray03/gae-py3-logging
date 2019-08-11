@@ -148,7 +148,7 @@ def gae_log():
 
 @app.route('/logging')
 def logging():
-    flask.g.custom_logger.info('Hello test message')
+    flask.g.custom_logger.info('Hello test message 日本語エラーメッセージ')
     flask.g.custom_logger.error('Hello. this is error test message')
     return 'Hi.'
 
