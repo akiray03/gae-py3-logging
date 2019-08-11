@@ -52,15 +52,15 @@ def gae_log():
 
     trace = f'projects/{project_id}/traces/{trace_id}'
 
-    start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=2)
-    now = start_time + datetime.timedelta(seconds=1)
-    end_time = start_time + datetime.timedelta(seconds=2)
+    now = datetime.datetime.utcnow()
+    start_time = now - datetime.timedelta(seconds=2)
+    end_time = now + datetime.timedelta(seconds=3)
 
     j = {
         '@type': 'type.googleapis.com/google.appengine.logging.v1.RequestLog',
         # 'appEngineRelease': '1.9.71',  # TODO
         'appId': app_id,
-        'cost': 1.0e-8,
+        'cost': 0.0,
         'endTime': end_time.isoformat(),
         'finished': True,
         'first': True,
@@ -69,7 +69,7 @@ def gae_log():
         'instanceId': os.environ.get('GAE_INSTANCE'),
         'instanceIndex': -1,
         'ip': flask.request.headers.get('X-Appengine-User-Ip', flask.request.remote_addr),
-        'latency': '30.0s',
+        'latency': '0.0s',
         'line': [
             {
                 'logMessage': 'This is request message',
@@ -92,7 +92,7 @@ def gae_log():
                 }
             },
         ],
-        'megaCycles': '1234',
+        'megaCycles': '0',
         'method': flask.request.method,
         'requestId': os.environ.get('X-Appengine-Request-Log-Id', str(uuid.uuid4())),
         'resource': flask.request.path,
@@ -115,7 +115,21 @@ def gae_log():
         # }
     }
 
+    j2 = {
+        'Message': 'this is child log message',
+        'severity': 'INFO',
+        'logging.googleapis.com/trace': trace,
+        'logging.googleapis.com/spanId': span_id,
+        'logging.googleapis.com/sourceLocation': {
+            'file': __file__,
+            'line': 47,
+            'function': str(__name__)
+        }
+    }
+
     gae_logger.info(json.dumps(j))
+    print(json.dumps(j2), flush=True)
+
     return flask.jsonify(j)
 
 
