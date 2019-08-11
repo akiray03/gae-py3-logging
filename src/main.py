@@ -8,6 +8,7 @@ import traceback
 import datetime
 import uuid
 
+from custom_logger import CustomLoggerManager
 from custom_logger import CustomLogger
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -26,7 +27,19 @@ gae_logger.setLevel(logging.DEBUG)
 
 app = flask.Flask('app')
 
-custom_logger = CustomLogger()
+
+custom_logger_manager = CustomLoggerManager()
+
+@app.before_request
+def on_before_request():
+    flask.g.custom_logger = custom_logger_manager.getLogger(
+        trace_header=flask.request.headers.get('X-Cloud-Trace-Context')
+    )
+
+@app.after_request
+def on_after_request(response):
+    custom_logger_manager.flush()
+    return response
 
 
 @app.route('/')
@@ -135,7 +148,8 @@ def gae_log():
 
 @app.route('/logging')
 def logging():
-    custom_logger.info('Hello test message')
+    flask.g.custom_logger.info('Hello test message')
+    flask.g.custom_logger.error('Hello. this is error test message')
     return 'Hi.'
 
 
